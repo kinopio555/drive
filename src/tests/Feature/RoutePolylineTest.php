@@ -49,11 +49,16 @@ class RoutePolylineTest extends TestCase
                 'routes' => [
                     [
                         'polyline' => [
-                            'encodedPolyline' => 'test-polyline',
+                            'encodedPolyline' => 'w~wxEqgatYcBcBcBcB',
                         ],
                     ],
                 ],
             ], 200),
+            'https://maps.googleapis.com/maps/api/place/nearbysearch/json*' => Http::sequence()
+                ->push($this->placesResponse('place-alpha', 'Restaurant Alpha'), 200)
+                ->push($this->placesResponse('place-beta', 'Restaurant Beta'), 200)
+                ->push($this->placesResponse('place-gamma', 'Restaurant Gamma'), 200)
+                ->push($this->placesResponse('place-delta', 'Restaurant Delta'), 200),
         ]);
 
         Sanctum::actingAs(User::factory()->create());
@@ -63,10 +68,45 @@ class RoutePolylineTest extends TestCase
             'destination' => '京都駅',
         ]);
 
-        $response->assertOk()->assertJson([
-            'polyline' => 'test-polyline',
-        ]);
+        $response->assertOk()
+            ->assertJson([
+                'polyline' => 'w~wxEqgatYcBcBcBcB',
+            ])
+            ->assertJsonStructure([
+                'polyline',
+                'samples' => [
+                    [
+                        'coordinate' => ['latitude', 'longitude'],
+                        'restaurants',
+                    ],
+                ],
+            ]);
 
-        Http::assertSentCount(3);
+        $samples = $response->json('samples');
+
+        $this->assertCount(4, $samples);
+        $this->assertSame('Restaurant Alpha', $samples[0]['restaurants'][0]['name']);
+
+        Http::assertSentCount(7);
+    }
+
+    private function placesResponse(string $id, string $name): array
+    {
+        return [
+            'status' => 'OK',
+            'results' => [
+                [
+                    'place_id' => $id,
+                    'name' => $name,
+                    'geometry' => [
+                        'location' => [
+                            'lat' => 35.0,
+                            'lng' => 139.0,
+                        ],
+                    ],
+                    'vicinity' => 'Test Vicinity',
+                ],
+            ],
+        ];
     }
 }
