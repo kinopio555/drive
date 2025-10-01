@@ -38,6 +38,7 @@ class GoogleRoutesService
         }
 
         $samples = [];
+        $restaurants_names = [];
 
         foreach ($sampledPoints as $point) {
             $restaurants = $this->fetchNearbyRestaurants($point);
@@ -49,11 +50,16 @@ class GoogleRoutesService
                 ],
                 'restaurants' => $restaurants,
             ];
+
+            foreach ($restaurants as $restaurant) {
+                array_push($restaurants_names, $restaurant['name']);
+            }
         }
 
         return [
             'polyline' => $polyline,
             'samples' => $samples,
+            'restaurants_names' => $restaurants_names
         ];
     }
 
