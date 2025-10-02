@@ -84,7 +84,7 @@
                     class="pa-4"
                   >
                     <div class="d-flex flex-column flex-lg-row ga-6">
-                      <div class="flex-grow-1">
+                      <div class="route-card-content flex-grow-1">
                         <div class="d-flex flex-column flex-sm-row ga-4">
                           <div class="d-flex align-center ga-3 flex-grow-1">
                             <v-avatar color="primary" variant="tonal" size="48">
@@ -150,7 +150,7 @@
 
                       <v-divider vertical class="hidden-lg-and-down" />
 
-                      <div class="d-flex flex-column ga-3 align-start justify-start">
+                      <div class="route-card-notes d-flex flex-column ga-3 align-start justify-start">
                         <div class="text-subtitle-2 text-medium-emphasis">メモ</div>
                         <p class="text-body-2 mb-0">
                           出発地と目的地の組み合わせごとに保存された飲食店候補です。ルートを更新すると最新のリストが反映されます。
@@ -922,3 +922,24 @@ onMounted(async () => {
   }
 })
 </script>
+
+<style scoped>
+.route-card-content {
+  min-width: 0;
+}
+
+.route-card-notes {
+  width: 100%;
+}
+
+@media (min-width: 1280px) {
+  .route-card-notes {
+    flex: 0 0 320px;
+    max-width: 320px;
+  }
+
+  .route-card-content {
+    flex: 1 1 0%;
+  }
+}
+</style>
