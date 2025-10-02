@@ -185,10 +185,7 @@
             <section>
               <div class="d-flex flex-column flex-lg-row align-lg-center justify-space-between mb-4 ga-4">
                 <div>
-                  <h2 class="text-h5 font-weight-bold mb-1">ルートポリラインを取得</h2>
-                  <p class="text-body-2 text-medium-emphasis">
-                    origin / destination と任意のヘッダーを指定して、Routes API のレスポンスを確認できます。
-                  </p>
+                  <h2 class="text-h5 font-weight-bold mb-1">経路周辺の飲食店を検索</h2>
                 </div>
               </div>
 
@@ -232,7 +229,7 @@
                         :disabled="polylineLoading"
                         prepend-icon="mdi-download"
                       >
-                        ポリラインを取得
+                        飲食店を検索
                       </v-btn>
                       <v-btn
                         type="button"
@@ -278,13 +275,9 @@
               <div v-else-if="hasPolylineResult" class="d-flex flex-column ga-4">
                 <v-card variant="tonal" color="primary" class="pa-4">
                   <div class="text-subtitle-1 font-weight-medium mb-2">
-                    エンコード済みポリライン
+                    経路周辺の飲食店
                   </div>
-                  <v-sheet class="bg-primary-lighten-5 pa-3 rounded text-body-2 font-mono overflow-auto">
-                    {{ polylineResult.polyline || '取得されたポリラインがありません。' }}
-                  </v-sheet>
-                  <div class="d-flex flex-wrap align-center ga-2 mt-3">
-                    <span class="text-body-2 text-medium-emphasis">経路周辺の飲食店</span>
+                  <div class="d-flex flex-wrap align-center ga-2">
                     <template v-if="polylineResult.restaurantNames.length">
                       <v-chip
                         v-for="name in polylineResult.restaurantNames"
@@ -301,58 +294,6 @@
                     </span>
                   </div>
                 </v-card>
-
-                <v-expansion-panels variant="popout" multiple>
-                  <v-expansion-panel
-                    v-for="(sample, index) in polylineResult.samples"
-                    :key="sample.id"
-                  >
-                    <v-expansion-panel-title>
-                      サンプル {{ index + 1 }} ・ {{ formatCoordinate(sample.coordinate) }}
-                      <template #actions>
-                        <v-chip size="small" color="primary" variant="tonal">
-                          {{ sample.restaurants.length }} 店舗
-                        </v-chip>
-                      </template>
-                    </v-expansion-panel-title>
-                    <v-expansion-panel-text>
-                      <div v-if="sample.restaurants.length" class="d-flex flex-column ga-3">
-                        <v-card
-                          v-for="restaurant in sample.restaurants"
-                          :key="restaurant.id"
-                          variant="outlined"
-                          class="pa-3"
-                        >
-                          <div class="d-flex flex-column flex-sm-row align-sm-center justify-space-between ga-3">
-                            <div>
-                              <div class="text-body-1 font-weight-medium">
-                                {{ restaurant.name }}
-                              </div>
-                              <div class="text-body-2 text-medium-emphasis">
-                                {{ formatRestaurantSubtitle(restaurant) }}
-                              </div>
-                            </div>
-                            <div class="text-body-2 text-medium-emphasis text-sm-end">
-                              {{ formatCoordinate(restaurant.coordinate) }}
-                            </div>
-                          </div>
-                        </v-card>
-                      </div>
-                      <div v-else class="text-body-2 text-medium-emphasis">
-                        この地点付近の飲食店は見つかりませんでした。
-                      </div>
-                    </v-expansion-panel-text>
-                  </v-expansion-panel>
-
-                  <v-expansion-panel v-if="!polylineResult.samples.length">
-                    <v-expansion-panel-title>
-                      サンプル地点がありません
-                    </v-expansion-panel-title>
-                    <v-expansion-panel-text>
-                      経路サンプルが取得できませんでした。入力した地点やヘッダーを変更して再試行してください。
-                    </v-expansion-panel-text>
-                  </v-expansion-panel>
-                </v-expansion-panels>
               </div>
             </section>
           </v-card>
@@ -894,18 +835,6 @@ const fetchPolyline = async () => {
 const clearPolylineHeaders = () => {
   polylineForm.headersText = ''
   invalidHeaderLines.value = []
-}
-
-const formatCoordinate = (coordinate: PolylineCoordinate | null) => {
-  if (!coordinate) {
-    return '座標情報なし'
-  }
-
-  const { latitude, longitude } = coordinate
-  const formatValue = (value: number | null) =>
-    typeof value === 'number' && Number.isFinite(value) ? value.toFixed(5) : '—'
-
-  return `${formatValue(latitude)}, ${formatValue(longitude)}`
 }
 
 const formatRating = (rating?: number) => {
