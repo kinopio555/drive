@@ -10,14 +10,26 @@
               Vuetifyを利用したシンプルなサインアップ画面のデモです。
               下のボタンから新規登録ページへ移動できます。
             </p>
-            <v-btn
-              color="primary"
-              size="large"
-              to="/register"
-              append-icon="mdi-arrow-right"
-            >
-              新規登録へ
-            </v-btn>
+            <div class="d-flex flex-column flex-sm-row ga-4 justify-center">
+              <v-btn
+                color="primary"
+                size="large"
+                to="/register"
+                append-icon="mdi-arrow-right"
+              >
+                新規登録へ
+              </v-btn>
+
+              <v-btn
+                color="secondary"
+                size="large"
+                variant="outlined"
+                to="/login"
+                append-icon="mdi-login"
+              >
+                ログイン
+              </v-btn>
+            </div>
           </v-sheet>
         </v-col>
       </v-row>
