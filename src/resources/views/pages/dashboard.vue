@@ -179,6 +179,182 @@
                 </v-alert>
               </div>
             </section>
+
+            <v-divider class="my-8" />
+
+            <section>
+              <div class="d-flex flex-column flex-lg-row align-lg-center justify-space-between mb-4 ga-4">
+                <div>
+                  <h2 class="text-h5 font-weight-bold mb-1">ルートポリラインを取得</h2>
+                  <p class="text-body-2 text-medium-emphasis">
+                    origin / destination と任意のヘッダーを指定して、Routes API のレスポンスを確認できます。
+                  </p>
+                </div>
+              </div>
+
+              <v-form class="mb-6" @submit.prevent="fetchPolyline">
+                <v-row class="ga-4">
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="polylineForm.origin"
+                      label="出発地 (origin)"
+                      placeholder="例: 東京駅"
+                      prepend-inner-icon="mdi-map-marker"
+                      clearable
+                      required
+                    />
+                  </v-col>
+                  <v-col cols="12" md="6">
+                    <v-text-field
+                      v-model="polylineForm.destination"
+                      label="目的地 (destination)"
+                      placeholder="例: 京都駅"
+                      prepend-inner-icon="mdi-flag-checkered"
+                      clearable
+                      required
+                    />
+                  </v-col>
+                  <v-col cols="12">
+                    <v-textarea
+                      v-model="polylineForm.headersText"
+                      label="追加リクエストヘッダー"
+                      hint='1行につき1ヘッダーを "Header-Name: value" 形式で入力します。'
+                      persistent-hint
+                      rows="4"
+                      auto-grow
+                      prepend-inner-icon="mdi-form-textarea"
+                    />
+                    <div class="d-flex flex-wrap ga-2 mt-2">
+                      <v-btn
+                        type="submit"
+                        color="primary"
+                        :loading="polylineLoading"
+                        :disabled="polylineLoading"
+                        prepend-icon="mdi-download"
+                      >
+                        ポリラインを取得
+                      </v-btn>
+                      <v-btn
+                        type="button"
+                        variant="text"
+                        color="secondary"
+                        prepend-icon="mdi-sync"
+                        @click="clearPolylineHeaders"
+                      >
+                        ヘッダー入力をクリア
+                      </v-btn>
+                    </div>
+                  </v-col>
+                </v-row>
+              </v-form>
+
+              <v-alert
+                v-if="invalidHeaderLines.length"
+                type="warning"
+                variant="tonal"
+                class="mb-4"
+                density="comfortable"
+              >
+                入力形式が正しくないヘッダー行: {{ invalidHeaderLines.join(', ') }}
+              </v-alert>
+
+              <v-alert
+                v-if="polylineError"
+                type="error"
+                variant="tonal"
+                class="mb-4"
+                density="comfortable"
+              >
+                {{ polylineError }}
+              </v-alert>
+
+              <v-progress-linear
+                v-if="polylineLoading"
+                indeterminate
+                color="primary"
+                class="mb-6"
+              />
+
+              <div v-else-if="hasPolylineResult" class="d-flex flex-column ga-4">
+                <v-card variant="tonal" color="primary" class="pa-4">
+                  <div class="text-subtitle-1 font-weight-medium mb-2">
+                    エンコード済みポリライン
+                  </div>
+                  <v-sheet class="bg-primary-lighten-5 pa-3 rounded text-body-2 font-mono overflow-auto">
+                    {{ polylineResult.polyline || '取得されたポリラインがありません。' }}
+                  </v-sheet>
+                  <div class="d-flex flex-wrap align-center ga-2 mt-3">
+                    <span class="text-body-2 text-medium-emphasis">経路周辺の飲食店</span>
+                    <template v-if="polylineResult.restaurantNames.length">
+                      <v-chip
+                        v-for="name in polylineResult.restaurantNames"
+                        :key="name"
+                        color="secondary"
+                        variant="tonal"
+                        size="small"
+                      >
+                        {{ name }}
+                      </v-chip>
+                    </template>
+                    <span v-else class="text-body-2 text-medium-emphasis">
+                      レストラン候補が見つかりませんでした。
+                    </span>
+                  </div>
+                </v-card>
+
+                <v-expansion-panels variant="popout" multiple>
+                  <v-expansion-panel
+                    v-for="(sample, index) in polylineResult.samples"
+                    :key="sample.id"
+                  >
+                    <v-expansion-panel-title>
+                      サンプル {{ index + 1 }} ・ {{ formatCoordinate(sample.coordinate) }}
+                      <template #actions>
+                        <v-chip size="small" color="primary" variant="tonal">
+                          {{ sample.restaurants.length }} 店舗
+                        </v-chip>
+                      </template>
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      <div v-if="sample.restaurants.length" class="d-flex flex-column ga-3">
+                        <v-card
+                          v-for="restaurant in sample.restaurants"
+                          :key="restaurant.id"
+                          variant="outlined"
+                          class="pa-3"
+                        >
+                          <div class="d-flex flex-column flex-sm-row align-sm-center justify-space-between ga-3">
+                            <div>
+                              <div class="text-body-1 font-weight-medium">
+                                {{ restaurant.name }}
+                              </div>
+                              <div class="text-body-2 text-medium-emphasis">
+                                {{ formatRestaurantSubtitle(restaurant) }}
+                              </div>
+                            </div>
+                            <div class="text-body-2 text-medium-emphasis text-sm-end">
+                              {{ formatCoordinate(restaurant.coordinate) }}
+                            </div>
+                          </div>
+                        </v-card>
+                      </div>
+                      <div v-else class="text-body-2 text-medium-emphasis">
+                        この地点付近の飲食店は見つかりませんでした。
+                      </div>
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+
+                  <v-expansion-panel v-if="!polylineResult.samples.length">
+                    <v-expansion-panel-title>
+                      サンプル地点がありません
+                    </v-expansion-panel-title>
+                    <v-expansion-panel-text>
+                      経路サンプルが取得できませんでした。入力した地点やヘッダーを変更して再試行してください。
+                    </v-expansion-panel-text>
+                  </v-expansion-panel>
+                </v-expansion-panels>
+              </div>
+            </section>
           </v-card>
         </v-col>
       </v-row>
@@ -188,7 +364,7 @@
 
 <script setup lang="ts">
 import { $fetch, FetchError } from 'ofetch'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from '#imports'
 import { useCookie } from '#app'
 
@@ -200,12 +376,39 @@ const userEndpoint = `${apiBaseUrl}/get-user`
 const logoutEndpoint = `${apiBaseUrl}/logout`
 const csrfEndpoint = `${apiBaseUrl}/sanctum/csrf-cookie`
 const restaurantsEndpoint = `${apiBaseUrl}/api/restaurants-nearby`
+const polylineEndpoint = `${apiBaseUrl}/api/routes/polyline`
 
 type RouteWithRestaurants = {
   id: string
   origin: string
   destination: string
   restaurantNames: string[]
+}
+
+type PolylineCoordinate = {
+  latitude: number | null
+  longitude: number | null
+}
+
+type PolylineSampleRestaurant = {
+  id: string
+  name: string
+  rating?: number
+  reviewCount?: number
+  vicinity?: string
+  coordinate: PolylineCoordinate | null
+}
+
+type PolylineSample = {
+  id: string
+  coordinate: PolylineCoordinate | null
+  restaurants: PolylineSampleRestaurant[]
+}
+
+type PolylineResult = {
+  polyline: string
+  restaurantNames: string[]
+  samples: PolylineSample[]
 }
 
 const userName = ref<string>('')
@@ -215,6 +418,16 @@ const logoutError = ref('')
 const routes = ref<RouteWithRestaurants[]>([])
 const restaurantsLoading = ref(false)
 const restaurantsError = ref('')
+
+const polylineForm = reactive({
+  origin: '',
+  destination: '',
+  headersText: '',
+})
+const polylineLoading = ref(false)
+const polylineError = ref('')
+const polylineResult = ref<PolylineResult | null>(null)
+const invalidHeaderLines = ref<string[]>([])
 
 const greetingMessage = computed(() => {
   if (loading.value) {
@@ -227,6 +440,8 @@ const greetingMessage = computed(() => {
 
   return 'ユーザー情報を取得できませんでした。'
 })
+
+const hasPolylineResult = computed(() => polylineResult.value !== null)
 
 const coerceToBoolean = (value: unknown) => {
   if (typeof value === 'boolean') {
@@ -313,6 +528,21 @@ const parseErrorMessage = (error: unknown) => {
   return '処理に失敗しました。時間をおいて再度お試しください。'
 }
 
+const extractNumber = (value: unknown): number | undefined => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+
+  if (typeof value === 'string') {
+    const parsed = Number.parseFloat(value)
+    if (!Number.isNaN(parsed)) {
+      return parsed
+    }
+  }
+
+  return undefined
+}
+
 const extractString = (value: unknown): string | undefined => {
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -339,6 +569,21 @@ const extractStringArray = (value: unknown): string[] => {
   }
 
   return []
+}
+
+const extractCoordinate = (value: unknown): PolylineCoordinate | null => {
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>
+    const latitude = extractNumber(record.latitude ?? record.lat)
+    const longitude = extractNumber(record.longitude ?? record.lng ?? record.lon)
+
+    return {
+      latitude: latitude ?? null,
+      longitude: longitude ?? null,
+    }
+  }
+
+  return null
 }
 
 const normalizeRoutes = (payload: unknown): RouteWithRestaurants[] => {
@@ -374,6 +619,70 @@ const normalizeRoutes = (payload: unknown): RouteWithRestaurants[] => {
       }
     })
     .filter((item): item is RouteWithRestaurants => Boolean(item))
+}
+
+const normalizePolylineResponse = (payload: unknown): PolylineResult => {
+  if (!payload || typeof payload !== 'object') {
+    return {
+      polyline: '',
+      restaurantNames: [],
+      samples: [],
+    }
+  }
+
+  const record = payload as Record<string, unknown>
+  const polyline = extractString(record.polyline) ?? ''
+  const restaurantNames = Array.from(new Set(extractStringArray(record.restaurants_names ?? record.restaurantNames)))
+
+  const samples = Array.isArray(record.samples)
+    ? (record.samples as unknown[])
+        .map((sample, index) => {
+          if (!sample || typeof sample !== 'object') {
+            return undefined
+          }
+
+          const sampleRecord = sample as Record<string, unknown>
+          const coordinate = extractCoordinate(sampleRecord.coordinate)
+
+          const restaurants = Array.isArray(sampleRecord.restaurants)
+            ? (sampleRecord.restaurants as unknown[])
+                .map((restaurant, restaurantIndex) => {
+                  if (!restaurant || typeof restaurant !== 'object') {
+                    return undefined
+                  }
+
+                  const restaurantRecord = restaurant as Record<string, unknown>
+
+                  const restaurantId =
+                    extractString(restaurantRecord.place_id ?? restaurantRecord.id)
+                    ?? `${index}-${restaurantIndex}`
+
+                  return {
+                    id: restaurantId,
+                    name: extractString(restaurantRecord.name) ?? '名称不明',
+                    rating: extractNumber(restaurantRecord.rating),
+                    reviewCount: extractNumber(restaurantRecord.user_ratings_total ?? restaurantRecord.reviewCount),
+                    vicinity: extractString(restaurantRecord.vicinity ?? restaurantRecord.address),
+                    coordinate: extractCoordinate(restaurantRecord.location),
+                  }
+                })
+                .filter((item): item is PolylineSampleRestaurant => Boolean(item))
+            : []
+
+          return {
+            id: extractString(sampleRecord.id) ?? `sample-${index}`,
+            coordinate,
+            restaurants,
+          }
+        })
+        .filter((item): item is PolylineSample => Boolean(item))
+    : []
+
+  return {
+    polyline,
+    restaurantNames,
+    samples,
+  }
 }
 
 const ensureCsrfCookie = async () => {
@@ -482,6 +791,161 @@ const refreshRestaurants = () => {
   loadRoutes()
 }
 
+const parseHeadersInput = (input: string) => {
+  const headers: Record<string, string> = {}
+  const invalidLinesLocal: string[] = []
+
+  input
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .forEach((line) => {
+      const separatorIndex = line.indexOf(':')
+
+      if (separatorIndex === -1) {
+        invalidLinesLocal.push(line)
+        return
+      }
+
+      const name = line.slice(0, separatorIndex).trim()
+      const value = line.slice(separatorIndex + 1).trim()
+
+      if (!name || !value) {
+        invalidLinesLocal.push(line)
+        return
+      }
+
+      headers[name] = value
+    })
+
+  return { headers, invalidLines: invalidLinesLocal }
+}
+
+const fetchPolyline = async () => {
+  if (polylineLoading.value) {
+    return
+  }
+
+  polylineLoading.value = true
+  polylineError.value = ''
+  polylineResult.value = null
+  invalidHeaderLines.value = []
+
+  const originInput = polylineForm.origin.trim()
+  const destinationInput = polylineForm.destination.trim()
+
+  if (!originInput || !destinationInput) {
+    polylineLoading.value = false
+    polylineError.value = '出発地と目的地を入力してください。'
+    return
+  }
+
+  try {
+    await ensureCsrfCookie()
+
+    const customHeadersResult = parseHeadersInput(polylineForm.headersText)
+
+    if (customHeadersResult.invalidLines.length) {
+      invalidHeaderLines.value = customHeadersResult.invalidLines
+      throw new Error('ヘッダーの形式が正しくありません。"Header-Name: value" の形式で入力してください。')
+    }
+
+    const origin = getOriginHeader()
+    const xsrfToken = readXsrfToken()
+
+    const baseHeaders: Record<string, string> = {
+      Accept: 'application/json',
+      Origin: origin,
+      'X-Requested-With': 'XMLHttpRequest',
+      ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {}),
+    }
+
+    const headers = {
+      ...baseHeaders,
+      ...customHeadersResult.headers,
+    }
+
+    const response = await $fetch<unknown>(polylineEndpoint, {
+      method: 'GET',
+      headers,
+      credentials: 'include',
+      query: {
+        origin: originInput,
+        destination: destinationInput,
+      },
+    })
+
+    polylineResult.value = normalizePolylineResponse(response)
+  } catch (error) {
+    console.error('ポリライン情報の取得に失敗しました', error)
+
+    if (error instanceof FetchError && error.response?.status === 401) {
+      polylineError.value = 'セッションの有効期限が切れています。もう一度ログインしてください。'
+      await router.replace('/login')
+      return
+    }
+
+    polylineError.value = parseErrorMessage(error)
+  } finally {
+    polylineLoading.value = false
+  }
+}
+
+const clearPolylineHeaders = () => {
+  polylineForm.headersText = ''
+  invalidHeaderLines.value = []
+}
+
+const formatCoordinate = (coordinate: PolylineCoordinate | null) => {
+  if (!coordinate) {
+    return '座標情報なし'
+  }
+
+  const { latitude, longitude } = coordinate
+  const formatValue = (value: number | null) =>
+    typeof value === 'number' && Number.isFinite(value) ? value.toFixed(5) : '—'
+
+  return `${formatValue(latitude)}, ${formatValue(longitude)}`
+}
+
+const formatRating = (rating?: number) => {
+  if (rating === undefined || Number.isNaN(rating)) {
+    return '—'
+  }
+
+  return rating.toFixed(1)
+}
+
+const formatReviewCount = (count?: number) => {
+  if (count === undefined || Number.isNaN(count)) {
+    return ''
+  }
+
+  return `${Math.trunc(count)} 件のレビュー`
+}
+
+const formatRestaurantSubtitle = (restaurant: PolylineSampleRestaurant) => {
+  const parts: string[] = []
+
+  if (restaurant.vicinity) {
+    parts.push(restaurant.vicinity)
+  }
+
+  const ratingText = formatRating(restaurant.rating)
+  if (restaurant.rating !== undefined && ratingText !== '—') {
+    parts.push(`評価 ${ratingText}`)
+  }
+
+  if (restaurant.reviewCount !== undefined) {
+    const review = formatReviewCount(restaurant.reviewCount)
+    if (review) {
+      parts.push(review)
+    }
+  }
+
+  return parts.join(' ・ ') || '詳細情報はありません'
+}
+
 const logout = async () => {
   if (isLoggingOut.value) {
     return
@@ -529,4 +993,3 @@ onMounted(async () => {
   }
 })
 </script>
-
