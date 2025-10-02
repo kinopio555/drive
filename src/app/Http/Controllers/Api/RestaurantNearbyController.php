@@ -6,9 +6,27 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreRestaurantNearbyRequest;
 use App\Models\RestaurantNearby;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class RestaurantNearbyController extends Controller
 {
+    public function index(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return response()->json([
+                'message' => 'Unauthenticated.',
+            ], 401);
+        }
+
+        $records = RestaurantNearby::query()
+            ->where('user_id', $user->id)
+            ->get(['origin', 'destination', 'restaurants_names']);
+
+        return response()->json($records);
+    }
+
     public function store(StoreRestaurantNearbyRequest $request): JsonResponse
     {
         $user = $request->user();
