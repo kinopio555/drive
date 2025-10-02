@@ -41,9 +41,9 @@
             <section>
               <div class="d-flex flex-column flex-sm-row align-sm-center justify-space-between mb-4 ga-4">
                 <div>
-                  <h2 class="text-h5 font-weight-bold mb-1">近くのレストラン</h2>
+                  <h2 class="text-h5 font-weight-bold mb-1">保存した経路とレストラン</h2>
                   <p class="text-body-2 text-medium-emphasis">
-                    現在地周辺のレストラン情報を表示します。
+                    出発地から目的地までの経路周辺で見つかった飲食店を表示します。
                   </p>
                 </div>
                 <v-btn
@@ -76,80 +76,93 @@
               />
 
               <div v-else>
-                <div v-if="restaurants.length" class="d-flex flex-column ga-4">
+                <div v-if="routes.length" class="d-flex flex-column ga-4">
                   <v-card
-                    v-for="restaurant in restaurants"
-                    :key="restaurant.id"
+                    v-for="route in routes"
+                    :key="route.id"
                     variant="outlined"
                     class="pa-4"
                   >
-                    <div class="d-flex flex-column flex-md-row justify-space-between ga-4">
+                    <div class="d-flex flex-column flex-lg-row ga-6">
                       <div class="flex-grow-1">
-                        <div class="d-flex align-center ga-2 mb-2">
-                          <v-icon color="primary">mdi-silverware-fork-knife</v-icon>
-                          <h3 class="text-h6 font-weight-bold mb-0">
-                            {{ restaurant.name }}
-                          </h3>
+                        <div class="d-flex flex-column flex-sm-row ga-4">
+                          <div class="d-flex align-center ga-3 flex-grow-1">
+                            <v-avatar color="primary" variant="tonal" size="48">
+                              <v-icon size="28">mdi-map-marker</v-icon>
+                            </v-avatar>
+                            <div>
+                              <div class="text-overline text-medium-emphasis">出発地</div>
+                              <div class="text-body-1 font-weight-medium">
+                                {{ route.origin }}
+                              </div>
+                            </div>
+                          </div>
+                          <div class="d-flex align-center ga-3 flex-grow-1">
+                            <v-avatar color="secondary" variant="tonal" size="48">
+                              <v-icon size="28">mdi-flag-checkered</v-icon>
+                            </v-avatar>
+                            <div>
+                              <div class="text-overline text-medium-emphasis">目的地</div>
+                              <div class="text-body-1 font-weight-medium">
+                                {{ route.destination }}
+                              </div>
+                            </div>
+                          </div>
                         </div>
 
-                        <div class="text-body-2 text-medium-emphasis mb-2">
-                          {{ restaurant.address || '住所情報がありません' }}
-                        </div>
+                        <v-divider class="my-4" />
 
-                        <div class="d-flex flex-wrap align-center ga-2 text-body-2">
-                          <div v-if="restaurant.categories.length" class="d-flex flex-wrap ga-2">
-                            <v-chip
-                              v-for="category in restaurant.categories"
-                              :key="`${restaurant.id}-${category}`"
-                              size="small"
-                              variant="tonal"
-                              color="secondary"
-                            >
-                              {{ category }}
+                        <div>
+                          <div class="d-flex align-center justify-space-between mb-3">
+                            <div class="text-subtitle-2 text-medium-emphasis">
+                              経路周辺の飲食店
+                            </div>
+                            <v-chip size="small" color="primary" variant="tonal">
+                              {{ route.restaurantNames.length }} 店舗
                             </v-chip>
+                          </div>
+
+                          <v-list density="compact" lines="two" class="bg-transparent">
+                            <v-list-item
+                              v-for="(name, index) in route.restaurantNames"
+                              :key="`${route.id}-${name}`"
+                              class="rounded"
+                            >
+                              <template #prepend>
+                                <v-avatar size="28" color="primary" variant="tonal">
+                                  <span class="text-caption font-weight-semibold">{{ index + 1 }}</span>
+                                </v-avatar>
+                              </template>
+                              <v-list-item-title class="text-body-1 font-weight-medium">
+                                {{ name }}
+                              </v-list-item-title>
+                              <v-list-item-subtitle class="text-body-2 text-medium-emphasis">
+                                経路沿いのおすすめスポット
+                              </v-list-item-subtitle>
+                            </v-list-item>
+                          </v-list>
+
+                          <div v-if="!route.restaurantNames.length" class="text-body-2 text-medium-emphasis">
+                            レストラン候補が登録されていません。
                           </div>
                         </div>
                       </div>
 
-                      <div class="d-flex flex-column justify-center align-center ga-2 text-center">
-                        <div v-if="restaurant.rating !== undefined" class="text-h6 font-weight-bold">
-                          {{ restaurant.rating.toFixed(1) }}
-                        </div>
-                        <v-rating
-                          v-if="restaurant.rating !== undefined"
-                          :model-value="restaurant.rating"
-                          color="amber"
-                          half-increments
-                          readonly
-                          density="comfortable"
-                        />
-                        <div v-if="restaurant.reviewCount !== undefined" class="text-caption text-medium-emphasis">
-                          {{ restaurant.reviewCount }} 件のレビュー
-                        </div>
-                        <div v-if="restaurant.price" class="text-body-2">
-                          {{ restaurant.price }}
-                        </div>
-                        <div v-if="restaurant.distanceText" class="text-body-2 text-medium-emphasis">
-                          {{ restaurant.distanceText }}
-                        </div>
-                        <v-chip
-                          v-if="restaurant.isOpen !== null"
-                          :color="restaurant.isOpen ? 'success' : 'error'"
-                          size="small"
-                          variant="flat"
-                        >
-                          {{ restaurant.isOpen ? '営業中' : '営業時間外' }}
-                        </v-chip>
+                      <v-divider vertical class="hidden-lg-and-down" />
+
+                      <div class="d-flex flex-column ga-3 align-start justify-start">
+                        <div class="text-subtitle-2 text-medium-emphasis">メモ</div>
+                        <p class="text-body-2 mb-0">
+                          出発地と目的地の組み合わせごとに保存された飲食店候補です。ルートを更新すると最新のリストが反映されます。
+                        </p>
                         <v-btn
-                          v-if="restaurant.infoUrl"
-                          :href="restaurant.infoUrl"
-                          target="_blank"
-                          rel="noopener"
                           variant="text"
-                          append-icon="mdi-open-in-new"
                           size="small"
+                          color="primary"
+                          prepend-icon="mdi-map-marker-path"
+                          @click="refreshRestaurants"
                         >
-                          詳細を見る
+                          この経路を更新
                         </v-btn>
                       </div>
                     </div>
@@ -162,7 +175,7 @@
                   variant="tonal"
                   density="comfortable"
                 >
-                  レストラン情報が見つかりませんでした。
+                  保存された経路がまだありません。
                 </v-alert>
               </div>
             </section>
@@ -188,24 +201,18 @@ const logoutEndpoint = `${apiBaseUrl}/logout`
 const csrfEndpoint = `${apiBaseUrl}/sanctum/csrf-cookie`
 const restaurantsEndpoint = `${apiBaseUrl}/api/restaurants-nearby`
 
-type NormalizedRestaurant = {
+type RouteWithRestaurants = {
   id: string
-  name: string
-  address: string
-  rating?: number
-  reviewCount?: number
-  price?: string
-  categories: string[]
-  distanceText?: string
-  isOpen: boolean | null
-  infoUrl?: string
+  origin: string
+  destination: string
+  restaurantNames: string[]
 }
 
 const userName = ref<string>('')
 const loading = ref(true)
 const isLoggingOut = ref(false)
 const logoutError = ref('')
-const restaurants = ref<NormalizedRestaurant[]>([])
+const routes = ref<RouteWithRestaurants[]>([])
 const restaurantsLoading = ref(false)
 const restaurantsError = ref('')
 
@@ -247,6 +254,14 @@ const coerceToBoolean = (value: unknown) => {
   return false
 }
 
+const getOriginHeader = () => {
+  if (typeof window !== 'undefined' && window.location?.origin) {
+    return window.location.origin
+  }
+
+  return 'http://localhost:3000'
+}
+
 const readXsrfToken = () => {
   const tokenCookie = useCookie<string | null>('XSRF-TOKEN')
   if (tokenCookie.value) {
@@ -254,7 +269,11 @@ const readXsrfToken = () => {
   }
 
   if (typeof document !== 'undefined') {
-    const match = document.cookie.split(';').map((entry) => entry.trim()).find((entry) => entry.startsWith('XSRF-TOKEN='))
+    const match = document.cookie
+      .split(';')
+      .map((entry) => entry.trim())
+      .find((entry) => entry.startsWith('XSRF-TOKEN='))
+
     if (match) {
       return decodeURIComponent(match.split('=').slice(1).join('='))
     }
@@ -294,21 +313,6 @@ const parseErrorMessage = (error: unknown) => {
   return '処理に失敗しました。時間をおいて再度お試しください。'
 }
 
-const extractNumeric = (value: unknown): number | undefined => {
-  if (typeof value === 'number' && !Number.isNaN(value)) {
-    return value
-  }
-
-  if (typeof value === 'string') {
-    const parsed = Number.parseFloat(value)
-    if (!Number.isNaN(parsed)) {
-      return parsed
-    }
-  }
-
-  return undefined
-}
-
 const extractString = (value: unknown): string | undefined => {
   if (typeof value === 'string') {
     const trimmed = value.trim()
@@ -337,44 +341,14 @@ const extractStringArray = (value: unknown): string[] => {
   return []
 }
 
-const buildDistanceText = (value?: number) => {
-  if (value === undefined) {
-    return undefined
-  }
-
-  if (value >= 1) {
-    return `${value.toFixed(1)} km`
-  }
-
-  return `${Math.round(value * 1000)} m`
-}
-
-const getOriginHeader = () => {
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin
-  }
-
-  return 'http://localhost:8080'
-}
-
-const normalizeRestaurants = (payload: unknown): NormalizedRestaurant[] => {
+const normalizeRoutes = (payload: unknown): RouteWithRestaurants[] => {
   const candidates = (() => {
     if (Array.isArray(payload)) {
       return payload
     }
 
-    if (payload && typeof payload === 'object') {
-      if (Array.isArray((payload as { data?: unknown[] }).data)) {
-        return (payload as { data: unknown[] }).data
-      }
-
-      if (Array.isArray((payload as { restaurants?: unknown[] }).restaurants)) {
-        return (payload as { restaurants: unknown[] }).restaurants
-      }
-
-      if (Array.isArray((payload as { results?: unknown[] }).results)) {
-        return (payload as { results: unknown[] }).results
-      }
+    if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: unknown[] }).data)) {
+      return (payload as { data: unknown[] }).data
     }
 
     return []
@@ -388,59 +362,38 @@ const normalizeRestaurants = (payload: unknown): NormalizedRestaurant[] => {
 
       const record = item as Record<string, unknown>
 
-      const id =
-        extractString(record.id) ||
-        extractString(record.place_id) ||
-        extractString(record.uuid) ||
-        `${index}`
-
-      const name = extractString(record.name) || extractString(record.title) || '名称不明'
-      const address =
-        extractString(record.address) ||
-        extractString(record.formatted_address) ||
-        extractString(record.vicinity) ||
-        extractString(record.location) ||
-        '住所情報なし'
-
-      const rating = extractNumeric(record.rating)
-      const reviewCount = extractNumeric(record.user_ratings_total ?? record.review_count)
-
-      const price =
-        extractString(record.price)
-        || extractString(record.price_level)
-        || extractString(record.priceRange)
-
-      const categories = extractStringArray(
-        record.categories ?? record.category ?? record.types ?? record.cuisines,
-      )
-
-      const distanceMeters = extractNumeric(record.distanceMeters ?? record.distance_meters)
-      const distanceKilometers = extractNumeric(record.distanceKm ?? record.distance_km ?? record.distance)
-
-      const distance = distanceKilometers ?? (distanceMeters !== undefined ? distanceMeters / 1000 : undefined)
-
-      const openNowRaw = record.open_now ?? record.is_open ?? record.openNow ?? record.isOpen
-      const isOpen = typeof openNowRaw === 'boolean' ? openNowRaw : null
-
-      const infoUrl =
-        extractString(record.website)
-        || extractString(record.url)
-        || extractString(record.reserve_url)
+      const origin = extractString(record.origin) ?? '出発地情報なし'
+      const destination = extractString(record.destination) ?? '目的地情報なし'
+      const restaurantNames = extractStringArray(record.restaurants_names ?? record.restaurantNames)
 
       return {
-        id,
-        name,
-        address,
-        rating,
-        reviewCount,
-        price,
-        categories,
-        distanceText: buildDistanceText(distance),
-        isOpen,
-        infoUrl,
+        id: extractString(record.id) ?? `${origin}-${destination}-${index}`,
+        origin,
+        destination,
+        restaurantNames,
       }
     })
-    .filter((item): item is NormalizedRestaurant => Boolean(item))
+    .filter((item): item is RouteWithRestaurants => Boolean(item))
+}
+
+const ensureCsrfCookie = async () => {
+  if (readXsrfToken()) {
+    return
+  }
+
+  try {
+    await $fetch(csrfEndpoint, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        Origin: getOriginHeader(),
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    })
+  } catch (error) {
+    console.warn('CSRFクッキーの取得に失敗しました', error)
+  }
 }
 
 const loadUser = async (): Promise<boolean> => {
@@ -482,7 +435,7 @@ const loadUser = async (): Promise<boolean> => {
   }
 }
 
-const loadRestaurants = async () => {
+const loadRoutes = async () => {
   if (restaurantsLoading.value) {
     return
   }
@@ -491,17 +444,10 @@ const loadRestaurants = async () => {
   restaurantsError.value = ''
 
   try {
-    const origin = getOriginHeader()
-    console.log('origin', origin)
-        await $fetch(csrfEndpoint, {
-      method: 'GET',
-      credentials: 'include',
-    })
+    await ensureCsrfCookie()
 
+    const origin = getOriginHeader()
     const xsrfToken = readXsrfToken()
-    if (!xsrfToken) {
-      throw new Error('CSRFトークンの取得に失敗しました。')
-    }
 
     const response = await $fetch<unknown>(restaurantsEndpoint, {
       method: 'GET',
@@ -509,14 +455,22 @@ const loadRestaurants = async () => {
         Accept: 'application/json',
         Origin: origin,
         'X-Requested-With': 'XMLHttpRequest',
+        ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {}),
       },
       credentials: 'include',
     })
 
-    const normalized = normalizeRestaurants(response)
-    restaurants.value = normalized
+    routes.value = normalizeRoutes(response)
   } catch (error) {
     console.error('レストラン情報の取得に失敗しました', error)
+
+    if (error instanceof FetchError && error.response?.status === 401) {
+      routes.value = []
+      restaurantsError.value = 'セッションの有効期限が切れています。もう一度ログインしてください。'
+      await router.replace('/login')
+      return
+    }
+
     restaurantsError.value = parseErrorMessage(error)
   } finally {
     restaurantsLoading.value = false
@@ -524,8 +478,8 @@ const loadRestaurants = async () => {
 }
 
 const refreshRestaurants = () => {
-  restaurants.value = []
-  loadRestaurants()
+  routes.value = []
+  loadRoutes()
 }
 
 const logout = async () => {
@@ -537,10 +491,7 @@ const logout = async () => {
   logoutError.value = ''
 
   try {
-    await $fetch(csrfEndpoint, {
-      method: 'GET',
-      credentials: 'include',
-    })
+    await ensureCsrfCookie()
 
     const xsrfToken = readXsrfToken()
     if (!xsrfToken) {
@@ -552,6 +503,7 @@ const logout = async () => {
       credentials: 'include',
       headers: {
         Accept: 'application/json',
+        Origin: getOriginHeader(),
         'X-Requested-With': 'XMLHttpRequest',
         'X-XSRF-TOKEN': xsrfToken,
       },
@@ -573,7 +525,8 @@ const logout = async () => {
 onMounted(async () => {
   const isLoggedIn = await loadUser()
   if (isLoggedIn) {
-    await loadRestaurants()
+    await loadRoutes()
   }
 })
 </script>
+
