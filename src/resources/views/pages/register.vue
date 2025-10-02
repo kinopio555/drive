@@ -95,13 +95,15 @@
 </template>
 
 <script setup lang="ts">
-import { $fetch } from 'ofetch'
+import { $fetch, FetchError } from 'ofetch'
 import { useCookie } from '#app'
 import { reactive, ref } from 'vue'
 
-const csrfEndpoint = 'http://localhost:8080/sanctum/csrf-cookie'
-const apiEndpoint = 'http://localhost:8080/register'
-const xsrfToken = useCookie<string | null>('XSRF-TOKEN')
+const apiBaseUrl = 'http://localhost:8080'
+const csrfEndpoint = `${apiBaseUrl}/sanctum/csrf-cookie`
+const apiEndpoint = `${apiBaseUrl}/register`
+const logoutEndpoint = `${apiBaseUrl}/logout`
+const isLoginEndpoint = `${apiBaseUrl}/is-login`
 
 const form = reactive({
   name: '',
@@ -127,6 +129,69 @@ const rules = {
 
 const togglePassword = () => {
   showPassword.value = !showPassword.value
+}
+
+const readXsrfToken = () => {
+  const tokenCookie = useCookie<string | null>('XSRF-TOKEN')
+  return tokenCookie.value ? decodeURIComponent(tokenCookie.value) : ''
+}
+
+const coerceToBoolean = (value: unknown) => {
+  if (typeof value === 'boolean') {
+    return value
+  }
+
+  if (typeof value === 'number') {
+    return value === 1
+  }
+
+  if (typeof value === 'string') {
+    return value === 'true' || value === '1'
+  }
+
+  if (value && typeof value === 'object') {
+    if ('loggedIn' in value) {
+      return coerceToBoolean((value as { loggedIn?: unknown }).loggedIn)
+    }
+
+    if ('isLogin' in value) {
+      return coerceToBoolean((value as { isLogin?: unknown }).isLogin)
+    }
+  }
+
+  return false
+}
+
+const ensureGuestSession = async (xsrfToken: string) => {
+  try {
+    const loginStatus = await $fetch(isLoginEndpoint, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      throwOnHTTPError: false,
+    })
+
+    if (coerceToBoolean(loginStatus)) {
+      await $fetch(logoutEndpoint, {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-XSRF-TOKEN': xsrfToken,
+        },
+      })
+
+      return true
+    }
+  } catch (error) {
+    console.error('ログアウト状態の確認に失敗しました', error)
+  }
+
+  return false
 }
 
 const parseErrorMessage = (error: unknown) => {
@@ -161,8 +226,8 @@ const parseErrorMessage = (error: unknown) => {
 }
 
 const submit = async () => {
-  const isFormValid = await formRef.value?.validate()
-  if (!isFormValid) {
+  const validationResult = await formRef.value?.validate()
+  if (!validationResult || (typeof validationResult === 'object' && 'valid' in validationResult && !validationResult.valid)) {
     return
   }
 
@@ -175,6 +240,26 @@ const submit = async () => {
       credentials: 'include',
     })
 
+    let xsrfToken = readXsrfToken()
+    if (!xsrfToken) {
+      throw new Error('CSRFトークンの取得に失敗しました。')
+    }
+
+    const loggedOut = await ensureGuestSession(xsrfToken)
+
+    if (loggedOut) {
+      await $fetch(csrfEndpoint, {
+        method: 'GET',
+        credentials: 'include',
+      })
+
+      xsrfToken = readXsrfToken()
+
+      if (!xsrfToken) {
+        throw new Error('CSRFトークンの再取得に失敗しました。')
+      }
+    }
+
     await $fetch(apiEndpoint, {
       method: 'POST',
       credentials: 'include',
@@ -185,7 +270,8 @@ const submit = async () => {
         password_confirmation: form.passwordConfirmation,
       },
       headers: {
-        'X-XSRF-TOKEN': xsrfToken.value ?? '',
+        Accept: 'application/json',
+        'X-XSRF-TOKEN': xsrfToken,
         'X-Requested-With': 'XMLHttpRequest',
       },
     })
@@ -199,6 +285,11 @@ const submit = async () => {
       passwordConfirmation: '',
     })
   } catch (error: unknown) {
+    if (error instanceof FetchError && error.response?.status === 302) {
+      errorMessage.value = '登録処理がリダイレクトされました。ログアウト後に再度お試しください。'
+      return
+    }
+
     errorMessage.value = parseErrorMessage(error)
   } finally {
     isSubmitting.value = false
