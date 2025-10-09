@@ -19,7 +19,7 @@ class RoutePolylineController extends Controller
         $payload = $request->validated();
 
         try {
-            $polyline = $this->googleRoutesService->fetchPolyline(
+            $route = $this->googleRoutesService->fetchRouteData(
                 $payload['origin'],
                 $payload['destination'],
             );
@@ -35,8 +35,6 @@ class RoutePolylineController extends Controller
             ], 500);
         }
 
-        return response()->json([
-            'polyline' => $polyline,
-        ]);
+        return response()->json($route);
     }
 }
