@@ -227,7 +227,7 @@
                         color="primary"
                         :loading="polylineLoading"
                         :disabled="polylineLoading"
-                        prepend-icon="mdi-download"
+                        prepend-icon="mdi-magnify"
                       >
                         飲食店を検索
                       </v-btn>
@@ -293,7 +293,35 @@
                       レストラン候補が見つかりませんでした。
                     </span>
                   </div>
+                  <div class="d-flex flex-column flex-sm-row ga-3 mt-4">
+                    <v-btn
+                      color="secondary"
+                      variant="tonal"
+                      prepend-icon="mdi-content-save"
+                      :loading="saveRestaurantsLoading"
+                      :disabled="saveRestaurantsLoading"
+                      @click="saveRestaurants"
+                    >
+                      検索結果を保存
+                    </v-btn>
+                  </div>
                 </v-card>
+                <v-alert
+                  v-if="saveRestaurantsSuccess"
+                  type="success"
+                  variant="tonal"
+                  density="comfortable"
+                >
+                  {{ saveRestaurantsSuccess }}
+                </v-alert>
+                <v-alert
+                  v-else-if="saveRestaurantsError"
+                  type="error"
+                  variant="tonal"
+                  density="comfortable"
+                >
+                  {{ saveRestaurantsError }}
+                </v-alert>
               </div>
             </section>
           </v-card>
@@ -369,6 +397,9 @@ const polylineLoading = ref(false)
 const polylineError = ref('')
 const polylineResult = ref<PolylineResult | null>(null)
 const invalidHeaderLines = ref<string[]>([])
+const saveRestaurantsLoading = ref(false)
+const saveRestaurantsSuccess = ref('')
+const saveRestaurantsError = ref('')
 
 const greetingMessage = computed(() => {
   if (loading.value) {
@@ -771,6 +802,8 @@ const fetchPolyline = async () => {
   polylineError.value = ''
   polylineResult.value = null
   invalidHeaderLines.value = []
+  saveRestaurantsSuccess.value = ''
+  saveRestaurantsError.value = ''
 
   const originInput = polylineForm.origin.trim()
   const destinationInput = polylineForm.destination.trim()
@@ -829,6 +862,74 @@ const fetchPolyline = async () => {
     polylineError.value = parseErrorMessage(error)
   } finally {
     polylineLoading.value = false
+  }
+}
+
+const saveRestaurants = async () => {
+  if (saveRestaurantsLoading.value) {
+    return
+  }
+
+  const originInput = polylineForm.origin.trim()
+  const destinationInput = polylineForm.destination.trim()
+  const currentResult = polylineResult.value
+
+  if (!originInput || !destinationInput) {
+    saveRestaurantsError.value = '出発地と目的地を入力してください。'
+    return
+  }
+
+  if (!currentResult) {
+    saveRestaurantsError.value = '保存する飲食店情報がありません。先に検索してください。'
+    return
+  }
+
+  saveRestaurantsLoading.value = true
+  saveRestaurantsError.value = ''
+  saveRestaurantsSuccess.value = ''
+
+  try {
+    await ensureCsrfCookie()
+
+    const xsrfToken = readXsrfToken()
+    if (!xsrfToken) {
+      throw new Error('CSRFトークンの取得に失敗しました。')
+    }
+
+    const origin = getOriginHeader()
+    const payload = {
+      origin: originInput,
+      destination: destinationInput,
+      restaurants_names: currentResult.restaurantNames,
+    }
+
+    await $fetch(restaurantsEndpoint, {
+      method: 'POST',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Origin: origin,
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-XSRF-TOKEN': xsrfToken,
+      },
+      body: payload,
+    })
+
+    saveRestaurantsSuccess.value = `${originInput} → ${destinationInput} の検索結果を保存しました。`
+    await loadRoutes()
+  } catch (error) {
+    console.error('レストラン情報の保存に失敗しました', error)
+
+    if (error instanceof FetchError && error.response?.status === 401) {
+      saveRestaurantsError.value = 'セッションの有効期限が切れています。もう一度ログインしてください。'
+      await router.replace('/login')
+      return
+    }
+
+    saveRestaurantsError.value = parseErrorMessage(error)
+  } finally {
+    saveRestaurantsLoading.value = false
   }
 }
 

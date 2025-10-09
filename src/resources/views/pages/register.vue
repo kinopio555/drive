@@ -98,12 +98,15 @@
 import { $fetch, FetchError } from 'ofetch'
 import { useCookie } from '#app'
 import { reactive, ref } from 'vue'
+import { useRouter } from '#imports'
 
 const apiBaseUrl = 'http://localhost:8080'
 const csrfEndpoint = `${apiBaseUrl}/sanctum/csrf-cookie`
 const apiEndpoint = `${apiBaseUrl}/register`
 const logoutEndpoint = `${apiBaseUrl}/logout`
 const isLoginEndpoint = `${apiBaseUrl}/is-login`
+
+const router = useRouter()
 
 const form = reactive({
   name: '',
@@ -275,18 +278,11 @@ const submit = async () => {
         'X-Requested-With': 'XMLHttpRequest',
       },
     })
-
-    snackbar.value = true
-    formRef.value?.resetValidation()
-    Object.assign(form, {
-      name: '',
-      email: '',
-      password: '',
-      passwordConfirmation: '',
-    })
+    await router.push('/dashboard')
+    return
   } catch (error: unknown) {
     if (error instanceof FetchError && error.response?.status === 302) {
-      errorMessage.value = '登録処理がリダイレクトされました。ログアウト後に再度お試しください。'
+      await router.push('/dashboard')
       return
     }
 
