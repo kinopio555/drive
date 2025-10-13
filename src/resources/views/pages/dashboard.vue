@@ -339,7 +339,7 @@ import { useCookie } from '#app'
 
 const router = useRouter()
 
-const apiBaseUrl = 'http://localhost:8080'
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 const isLoginEndpoint = `${apiBaseUrl}/is-login`
 const userEndpoint = `${apiBaseUrl}/get-user`
 const logoutEndpoint = `${apiBaseUrl}/logout`

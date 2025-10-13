@@ -100,7 +100,7 @@ import { useCookie } from '#app'
 import { reactive, ref } from 'vue'
 import { useRouter } from '#imports'
 
-const apiBaseUrl = 'http://localhost:8080'
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'
 const csrfEndpoint = `${apiBaseUrl}/sanctum/csrf-cookie`
 const apiEndpoint = `${apiBaseUrl}/register`
 const logoutEndpoint = `${apiBaseUrl}/logout`
