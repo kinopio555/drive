@@ -39,3 +39,17 @@ XSRF-TOKEN はPOST/PUT/DELETEなどの“状態を変える”リクエストで
 APIトークン
 セッションクッキー
 laravel auth
+
+## production
+npm ci
+ps aux | grep "node .output/server/index.mjs"
+kill <PID>
+node .output/server/index.mjs
+
+.envを作成し
+DB_CONNECTION=mysql
+DB_HOST=db
+DB_PORT=3306
+DB_DATABASE=laravel_db
+DB_USERNAME=laravel_user
+DB_PASSWORD=laravel_password
