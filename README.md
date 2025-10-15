@@ -30,10 +30,6 @@ docker compose exec app chmod -R 775 /var/www/html/src/storage
 docker compose exec app chmod -R 775 /var/www/html/src/bootstrap/cache
 ```
 
-## やること
-SSL化
-高頻度で何度もログインログアウトを繰り返そうとすると、ちゃんと直前に新しいCSRFトークンを取得しているはずなのにCSRF token mismatch.と言われてしまう謎の解決
-
 ## 学び
 XSRF-TOKEN はPOST/PUT/DELETEなどの“状態を変える”リクエストで CSRF を防ぐために使われるもので、GET にはそもそも要求されません。要求されないといっても持っている必要はある。明示的にヘッダーに渡さなくていいだけ
 APIトークン
@@ -44,6 +40,7 @@ laravel auth
 npm ci
 ps aux | grep "node .output/server/index.mjs"
 kill <PID>
+npm run build
 node .output/server/index.mjs
 
 .envを作成し
@@ -53,3 +50,7 @@ DB_PORT=3306
 DB_DATABASE=laravel_db
 DB_USERNAME=laravel_user
 DB_PASSWORD=laravel_password
+
+
+
+SESSION_DOMAINも忘れずに変更
