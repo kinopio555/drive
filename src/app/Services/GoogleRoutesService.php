@@ -69,8 +69,10 @@ class GoogleRoutesService
             throw new RuntimeException('Google Maps API key is not configured.');
         }
 
-        $response = Http::get('https://maps.googleapis.com/maps/api/geocode/json', [
-            'address' => $placeName,
+        $response = Http::get('https://maps.googleapis.com/maps/api/place/findplacefromtext/json', [
+            'input' => $placeName,
+            'inputtype' => 'textquery',
+            'fields' => 'geometry',
             'key' => $this->apiKey,
             'language' => 'ja',
         ]);
@@ -78,19 +80,24 @@ class GoogleRoutesService
         try {
             $response->throw();
         } catch (RequestException $exception) {
-            throw new RuntimeException('Geocoding request failed.', 0, $exception);
+            throw new RuntimeException('Places find-place request failed.', 0, $exception);
         }
 
         $payload = $response->json();
+        $status = $payload['status'] ?? null;
 
-        if (($payload['status'] ?? null) !== 'OK') {
-            throw new RuntimeException("Geocoding failed for '{$placeName}'.");
+        if ($status === 'ZERO_RESULTS') {
+            throw new RuntimeException("Places API returned zero results for '{$placeName}'.");
         }
 
-        $location = $payload['results'][0]['geometry']['location'] ?? null;
+        if ($status !== 'OK') {
+            throw new RuntimeException("Places API request failed for '{$placeName}'.");
+        }
+
+        $location = data_get($payload, 'candidates.0.geometry.location');
 
         if (! isset($location['lat'], $location['lng'])) {
-            throw new RuntimeException("Geocoding response missing coordinates for '{$placeName}'.");
+            throw new RuntimeException("Places API response missing coordinates for '{$placeName}'.");
         }
 
         return [
