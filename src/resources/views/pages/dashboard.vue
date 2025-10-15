@@ -134,7 +134,14 @@
                                 </v-avatar>
                               </template>
                               <v-list-item-title class="text-body-1 font-weight-medium">
-                                {{ name }}
+                                <a
+                                  :href="buildRestaurantMapUrl(name)"
+                                  class="text-primary text-decoration-none"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {{ name }}
+                                </a>
                               </v-list-item-title>
                               <v-list-item-subtitle class="text-body-2 text-medium-emphasis">
                                 経路沿いのおすすめスポット
@@ -285,6 +292,9 @@
                         color="secondary"
                         variant="tonal"
                         size="small"
+                        :href="buildRestaurantMapUrl(name)"
+                        target="_blank"
+                        rel="noopener noreferrer"
                       >
                         {{ name }}
                       </v-chip>
@@ -447,6 +457,18 @@ const getOriginHeader = () => {
   }
 
   return 'http://localhost:3000'
+}
+
+const googleMapsSearchBaseUrl = 'https://www.google.com/maps/search/?api=1'
+
+const buildRestaurantMapUrl = (name: string) => {
+  const normalized = (name ?? '').trim()
+  if (!normalized) {
+    return googleMapsSearchBaseUrl
+  }
+
+  const query = encodeURIComponent(normalized).replace(/%20/g, '+')
+  return `${googleMapsSearchBaseUrl}&query=${query}`
 }
 
 const readXsrfToken = () => {

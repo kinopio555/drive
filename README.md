@@ -37,13 +37,16 @@ APIトークン
 laravel auth
 
 ## production
+composer install
+php artisan migrate:fresh
+
 npm ci
 ps aux | grep "node .output/server/index.mjs"
 kill <PID>
 npm run build
 node .output/server/index.mjs
 
-.envを作成し
+.envを二つ作成し
 DB_CONNECTION=mysql
 DB_HOST=db
 DB_PORT=3306
@@ -51,6 +54,7 @@ DB_DATABASE=laravel_db
 DB_USERNAME=laravel_user
 DB_PASSWORD=laravel_password
 
-
+## DBへの入り方
+mysql -u root -p
 
 SESSION_DOMAINも忘れずに変更
