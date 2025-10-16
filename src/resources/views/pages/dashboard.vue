@@ -219,15 +219,6 @@
                     />
                   </v-col>
                   <v-col cols="12">
-                    <v-textarea
-                      v-model="polylineForm.headersText"
-                      label="追加リクエストヘッダー"
-                      hint='1行につき1ヘッダーを "Header-Name: value" 形式で入力します。'
-                      persistent-hint
-                      rows="4"
-                      auto-grow
-                      prepend-inner-icon="mdi-form-textarea"
-                    />
                     <div class="d-flex flex-wrap ga-2 mt-2">
                       <v-btn
                         type="submit"
@@ -238,29 +229,10 @@
                       >
                         飲食店を検索
                       </v-btn>
-                      <v-btn
-                        type="button"
-                        variant="text"
-                        color="secondary"
-                        prepend-icon="mdi-sync"
-                        @click="clearPolylineHeaders"
-                      >
-                        ヘッダー入力をクリア
-                      </v-btn>
                     </div>
                   </v-col>
                 </v-row>
               </v-form>
-
-              <v-alert
-                v-if="invalidHeaderLines.length"
-                type="warning"
-                variant="tonal"
-                class="mb-4"
-                density="comfortable"
-              >
-                入力形式が正しくないヘッダー行: {{ invalidHeaderLines.join(', ') }}
-              </v-alert>
 
               <v-alert
                 v-if="polylineError"
@@ -401,12 +373,10 @@ const restaurantsError = ref('')
 const polylineForm = reactive({
   origin: '',
   destination: '',
-  headersText: '',
 })
 const polylineLoading = ref(false)
 const polylineError = ref('')
 const polylineResult = ref<PolylineResult | null>(null)
-const invalidHeaderLines = ref<string[]>([])
 const saveRestaurantsLoading = ref(false)
 const saveRestaurantsSuccess = ref('')
 const saveRestaurantsError = ref('')
@@ -785,36 +755,6 @@ const refreshRestaurants = () => {
   loadRoutes()
 }
 
-const parseHeadersInput = (input: string) => {
-  const headers: Record<string, string> = {}
-  const invalidLinesLocal: string[] = []
-
-  input
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .forEach((line) => {
-      const separatorIndex = line.indexOf(':')
-
-      if (separatorIndex === -1) {
-        invalidLinesLocal.push(line)
-        return
-      }
-
-      const name = line.slice(0, separatorIndex).trim()
-      const value = line.slice(separatorIndex + 1).trim()
-
-      if (!name || !value) {
-        invalidLinesLocal.push(line)
-        return
-      }
-
-      headers[name] = value
-    })
-
-  return { headers, invalidLines: invalidLinesLocal }
-}
-
 const fetchPolyline = async () => {
   if (polylineLoading.value) {
     return
@@ -823,7 +763,6 @@ const fetchPolyline = async () => {
   polylineLoading.value = true
   polylineError.value = ''
   polylineResult.value = null
-  invalidHeaderLines.value = []
   saveRestaurantsSuccess.value = ''
   saveRestaurantsError.value = ''
 
@@ -839,26 +778,14 @@ const fetchPolyline = async () => {
   try {
     await ensureCsrfCookie()
 
-    const customHeadersResult = parseHeadersInput(polylineForm.headersText)
-
-    if (customHeadersResult.invalidLines.length) {
-      invalidHeaderLines.value = customHeadersResult.invalidLines
-      throw new Error('ヘッダーの形式が正しくありません。"Header-Name: value" の形式で入力してください。')
-    }
-
     const origin = getOriginHeader()
     const xsrfToken = readXsrfToken()
 
-    const baseHeaders: Record<string, string> = {
+    const headers: Record<string, string> = {
       Accept: 'application/json',
       Origin: origin,
       'X-Requested-With': 'XMLHttpRequest',
       ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {}),
-    }
-
-    const headers = {
-      ...baseHeaders,
-      ...customHeadersResult.headers,
     }
 
     const response = await $fetch<unknown>(polylineEndpoint, {
@@ -953,11 +880,6 @@ const saveRestaurants = async () => {
   } finally {
     saveRestaurantsLoading.value = false
   }
-}
-
-const clearPolylineHeaders = () => {
-  polylineForm.headersText = ''
-  invalidHeaderLines.value = []
 }
 
 const formatRating = (rating?: number) => {
