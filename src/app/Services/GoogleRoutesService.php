@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\RateLimiter;
 use RuntimeException;
 
 class GoogleRoutesService
@@ -19,7 +20,7 @@ class GoogleRoutesService
         $this->apiKey = $apiKey ?? (string) config('services.google_maps.api_key');
     }
 
-    public function fetchRouteData(string $originPlaceName, string $destinationPlaceName): array
+    public function fetchRouteData(string $originPlaceName, string $destinationPlaceName, ?string $userIdentifier = null): array
     {
         $origin = $this->geocodePlaceName($originPlaceName);
         $destination = $this->geocodePlaceName($destinationPlaceName);
@@ -41,7 +42,7 @@ class GoogleRoutesService
         $restaurants_names = [];
 
         foreach ($sampledPoints as $point) {
-            $restaurants = $this->fetchNearbyRestaurants($point);
+            $restaurants = $this->fetchNearbyRestaurants($point, $userIdentifier);
 
             $samples[] = [
                 'coordinate' => [
@@ -285,8 +286,18 @@ class GoogleRoutesService
         ];
     }
 
-    private function fetchNearbyRestaurants(array $point): array
+    private function fetchNearbyRestaurants(array $point, ?string $userIdentifier = null): array
     {
+        if ($userIdentifier !== null) {
+            $limiterKey = "nearby-restaurants:user:{$userIdentifier}";
+
+            if (RateLimiter::tooManyAttempts($limiterKey, 20)) {
+                throw new RuntimeException('1分間に検索できる店舗数は20件までです');
+            }
+
+            RateLimiter::hit($limiterKey, 60);
+        }
+
         if ($this->apiKey === '') {
             throw new RuntimeException('Google Maps API key is not configured.');
         }

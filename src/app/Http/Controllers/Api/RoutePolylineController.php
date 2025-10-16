@@ -37,6 +37,7 @@ class RoutePolylineController extends Controller
             $route = $this->googleRoutesService->fetchRouteData(
                 $payload['origin'],
                 $payload['destination'],
+                $identifier,
             );
         } catch (RuntimeException $exception) {
             return response()->json([
