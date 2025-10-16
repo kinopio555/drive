@@ -69,40 +69,36 @@ class GoogleRoutesService
             throw new RuntimeException('Google Maps API key is not configured.');
         }
 
-        $response = Http::get('https://maps.googleapis.com/maps/api/place/findplacefromtext/json', [
-            'input' => $placeName,
-            'inputtype' => 'textquery',
-            'fields' => 'geometry',
-            'key' => $this->apiKey,
-            'language' => 'ja',
+        $response = Http::withHeaders([
+            'X-Goog-Api-Key' => $this->apiKey,
+            'X-Goog-FieldMask' => 'places.location',
+        ])->post('https://places.googleapis.com/v1/places:searchText', [
+            'textQuery' => $placeName,
+            'languageCode' => 'ja',
         ]);
 
         try {
             $response->throw();
         } catch (RequestException $exception) {
-            throw new RuntimeException('Places find-place request failed.', 0, $exception);
+            throw new RuntimeException('Places text search request failed.', 0, $exception);
         }
 
         $payload = $response->json();
-        $status = $payload['status'] ?? null;
+        $places = $payload['places'] ?? [];
 
-        if ($status === 'ZERO_RESULTS') {
+        if (count($places) === 0) {
             throw new RuntimeException("Places API returned zero results for '{$placeName}'.");
         }
 
-        if ($status !== 'OK') {
-            throw new RuntimeException("Places API request failed for '{$placeName}'.");
-        }
+        $location = data_get($places, '0.location');
 
-        $location = data_get($payload, 'candidates.0.geometry.location');
-
-        if (! isset($location['lat'], $location['lng'])) {
+        if (! isset($location['latitude'], $location['longitude'])) {
             throw new RuntimeException("Places API response missing coordinates for '{$placeName}'.");
         }
 
         return [
-            'latitude' => $location['lat'],
-            'longitude' => $location['lng'],
+            'latitude' => $location['latitude'],
+            'longitude' => $location['longitude'],
         ];
     }
 
@@ -295,12 +291,28 @@ class GoogleRoutesService
             throw new RuntimeException('Google Maps API key is not configured.');
         }
 
-        $response = Http::get('https://maps.googleapis.com/maps/api/place/nearbysearch/json', [
-            'location' => sprintf('%F,%F', $point['latitude'], $point['longitude']),
-            'radius' => self::NEARBY_SEARCH_RADIUS_METERS,
-            'type' => 'restaurant',
-            'language' => 'ja',
-            'key' => $this->apiKey,
+        $response = Http::withHeaders([
+            'X-Goog-Api-Key' => $this->apiKey,
+            'X-Goog-FieldMask' => implode(',', [
+                'places.id',
+                'places.displayName',
+                'places.rating',
+                'places.userRatingCount',
+                'places.location',
+                'places.formattedAddress',
+            ]),
+        ])->post('https://places.googleapis.com/v1/places:searchNearby', [
+            'includedTypes' => ['restaurant'],
+            'languageCode' => 'ja',
+            'locationRestriction' => [
+                'circle' => [
+                    'center' => [
+                        'latitude' => $point['latitude'],
+                        'longitude' => $point['longitude'],
+                    ],
+                    'radius' => self::NEARBY_SEARCH_RADIUS_METERS,
+                ],
+            ],
         ]);
 
         try {
@@ -310,20 +322,12 @@ class GoogleRoutesService
         }
 
         $payload = $response->json();
-        $status = $payload['status'] ?? null;
-
-        if ($status === 'ZERO_RESULTS') {
-            return [];
-        }
-
-        if ($status !== 'OK') {
-            throw new RuntimeException('Google Places API returned an error status.');
-        }
+        $places = $payload['places'] ?? [];
 
         $restaurants = [];
 
-        foreach ($payload['results'] ?? [] as $place) {
-            $placeId = $place['place_id'] ?? null;
+        foreach ($places as $place) {
+            $placeId = $place['id'] ?? null;
 
             if (! $placeId) {
                 continue;
@@ -331,14 +335,14 @@ class GoogleRoutesService
 
             $restaurants[$placeId] = [
                 'place_id' => $placeId,
-                'name' => $place['name'] ?? null,
+                'name' => data_get($place, 'displayName.text'),
                 'rating' => $place['rating'] ?? null,
-                'user_ratings_total' => $place['user_ratings_total'] ?? null,
+                'user_ratings_total' => data_get($place, 'userRatingCount'),
                 'location' => [
-                    'latitude' => data_get($place, 'geometry.location.lat'),
-                    'longitude' => data_get($place, 'geometry.location.lng'),
+                    'latitude' => data_get($place, 'location.latitude'),
+                    'longitude' => data_get($place, 'location.longitude'),
                 ],
-                'vicinity' => $place['vicinity'] ?? null,
+                'vicinity' => $place['formattedAddress'] ?? null,
             ];
         }
 
