@@ -143,9 +143,6 @@
                                   {{ name }}
                                 </a>
                               </v-list-item-title>
-                              <v-list-item-subtitle class="text-body-2 text-medium-emphasis">
-                                経路沿いのおすすめスポット
-                              </v-list-item-subtitle>
                             </v-list-item>
                           </v-list>
 
@@ -158,19 +155,6 @@
                       <v-divider vertical class="hidden-lg-and-down" />
 
                       <div class="route-card-notes d-flex flex-column ga-3 align-start justify-start">
-                        <div class="text-subtitle-2 text-medium-emphasis">メモ</div>
-                        <p class="text-body-2 mb-0">
-                          出発地と目的地の組み合わせごとに保存された飲食店候補です。ルートを更新すると最新のリストが反映されます。
-                        </p>
-                        <v-btn
-                          variant="text"
-                          size="small"
-                          color="primary"
-                          prepend-icon="mdi-map-marker-path"
-                          @click="refreshRestaurants"
-                        >
-                          この経路を更新
-                        </v-btn>
                         <v-btn
                           variant="outlined"
                           size="small"
