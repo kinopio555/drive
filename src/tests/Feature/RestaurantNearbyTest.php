@@ -113,4 +113,61 @@ class RestaurantNearbyTest extends TestCase
                 'restaurants_names' => ['Delta'],
             ]);
     }
+
+    public function test_guests_cannot_delete_restaurant_nearby_record(): void
+    {
+        $record = RestaurantNearby::create([
+            'user_id' => User::factory()->create()->id,
+            'origin' => 'Tokyo Station',
+            'destination' => 'Kyoto Station',
+            'restaurants_names' => ['Alpha', 'Beta'],
+        ]);
+
+        $response = $this->deleteJson("/api/restaurants-nearby/{$record->id}");
+
+        $response->assertUnauthorized();
+        $this->assertDatabaseHas('restaurants_nearby', [
+            'id' => $record->id,
+        ]);
+    }
+
+    public function test_authenticated_user_can_delete_their_restaurant_nearby_record(): void
+    {
+        Sanctum::actingAs($user = User::factory()->create());
+
+        $record = RestaurantNearby::create([
+            'user_id' => $user->id,
+            'origin' => 'Tokyo Station',
+            'destination' => 'Kyoto Station',
+            'restaurants_names' => ['Alpha', 'Beta'],
+        ]);
+
+        $response = $this->deleteJson("/api/restaurants-nearby/{$record->id}");
+
+        $response->assertNoContent();
+        $this->assertDatabaseMissing('restaurants_nearby', [
+            'id' => $record->id,
+        ]);
+    }
+
+    public function test_authenticated_user_cannot_delete_other_users_restaurant_nearby_record(): void
+    {
+        Sanctum::actingAs($user = User::factory()->create());
+
+        $otherUser = User::factory()->create();
+
+        $record = RestaurantNearby::create([
+            'user_id' => $otherUser->id,
+            'origin' => 'Osaka Station',
+            'destination' => 'Nagoya Station',
+            'restaurants_names' => ['Gamma'],
+        ]);
+
+        $response = $this->deleteJson("/api/restaurants-nearby/{$record->id}");
+
+        $response->assertForbidden();
+        $this->assertDatabaseHas('restaurants_nearby', [
+            'id' => $record->id,
+        ]);
+    }
 }

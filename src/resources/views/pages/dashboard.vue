@@ -143,9 +143,6 @@
                                   {{ name }}
                                 </a>
                               </v-list-item-title>
-                              <v-list-item-subtitle class="text-body-2 text-medium-emphasis">
-                                経路沿いのおすすめスポット
-                              </v-list-item-subtitle>
                             </v-list-item>
                           </v-list>
 
@@ -158,18 +155,16 @@
                       <v-divider vertical class="hidden-lg-and-down" />
 
                       <div class="route-card-notes d-flex flex-column ga-3 align-start justify-start">
-                        <div class="text-subtitle-2 text-medium-emphasis">メモ</div>
-                        <p class="text-body-2 mb-0">
-                          出発地と目的地の組み合わせごとに保存された飲食店候補です。ルートを更新すると最新のリストが反映されます。
-                        </p>
                         <v-btn
-                          variant="text"
+                          variant="outlined"
                           size="small"
-                          color="primary"
-                          prepend-icon="mdi-map-marker-path"
-                          @click="refreshRestaurants"
+                          color="error"
+                          prepend-icon="mdi-delete"
+                          :loading="isRouteDeleting(route.id)"
+                          :disabled="isRouteDeleting(route.id)"
+                          @click="deleteRoute(route.id)"
                         >
-                          この経路を更新
+                          この記録を削除
                         </v-btn>
                       </div>
                     </div>
@@ -219,15 +214,6 @@
                     />
                   </v-col>
                   <v-col cols="12">
-                    <v-textarea
-                      v-model="polylineForm.headersText"
-                      label="追加リクエストヘッダー"
-                      hint='1行につき1ヘッダーを "Header-Name: value" 形式で入力します。'
-                      persistent-hint
-                      rows="4"
-                      auto-grow
-                      prepend-inner-icon="mdi-form-textarea"
-                    />
                     <div class="d-flex flex-wrap ga-2 mt-2">
                       <v-btn
                         type="submit"
@@ -238,29 +224,10 @@
                       >
                         飲食店を検索
                       </v-btn>
-                      <v-btn
-                        type="button"
-                        variant="text"
-                        color="secondary"
-                        prepend-icon="mdi-sync"
-                        @click="clearPolylineHeaders"
-                      >
-                        ヘッダー入力をクリア
-                      </v-btn>
                     </div>
                   </v-col>
                 </v-row>
               </v-form>
-
-              <v-alert
-                v-if="invalidHeaderLines.length"
-                type="warning"
-                variant="tonal"
-                class="mb-4"
-                density="comfortable"
-              >
-                入力形式が正しくないヘッダー行: {{ invalidHeaderLines.join(', ') }}
-              </v-alert>
 
               <v-alert
                 v-if="polylineError"
@@ -395,18 +362,17 @@ const loading = ref(true)
 const isLoggingOut = ref(false)
 const logoutError = ref('')
 const routes = ref<RouteWithRestaurants[]>([])
+const deletingRouteIds = ref<Record<string, boolean>>({})
 const restaurantsLoading = ref(false)
 const restaurantsError = ref('')
 
 const polylineForm = reactive({
   origin: '',
   destination: '',
-  headersText: '',
 })
 const polylineLoading = ref(false)
 const polylineError = ref('')
 const polylineResult = ref<PolylineResult | null>(null)
-const invalidHeaderLines = ref<string[]>([])
 const saveRestaurantsLoading = ref(false)
 const saveRestaurantsSuccess = ref('')
 const saveRestaurantsError = ref('')
@@ -764,6 +730,7 @@ const loadRoutes = async () => {
     })
 
     routes.value = normalizeRoutes(response)
+    deletingRouteIds.value = {}
   } catch (error) {
     console.error('レストラン情報の取得に失敗しました', error)
 
@@ -785,34 +752,69 @@ const refreshRestaurants = () => {
   loadRoutes()
 }
 
-const parseHeadersInput = (input: string) => {
-  const headers: Record<string, string> = {}
-  const invalidLinesLocal: string[] = []
+const isRouteDeleting = (routeId: string) => deletingRouteIds.value[routeId] === true
 
-  input
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .forEach((line) => {
-      const separatorIndex = line.indexOf(':')
+const updateDeletingRouteState = (routeId: string, active: boolean) => {
+  if (!routeId) {
+    return
+  }
 
-      if (separatorIndex === -1) {
-        invalidLinesLocal.push(line)
-        return
-      }
+  if (active) {
+    deletingRouteIds.value = {
+      ...deletingRouteIds.value,
+      [routeId]: true,
+    }
+    return
+  }
 
-      const name = line.slice(0, separatorIndex).trim()
-      const value = line.slice(separatorIndex + 1).trim()
+  const { [routeId]: _removed, ...rest } = deletingRouteIds.value
+  deletingRouteIds.value = rest
+}
 
-      if (!name || !value) {
-        invalidLinesLocal.push(line)
-        return
-      }
+const deleteRoute = async (routeId: string) => {
+  if (!routeId || isRouteDeleting(routeId)) {
+    return
+  }
 
-      headers[name] = value
+  restaurantsError.value = ''
+
+  try {
+    updateDeletingRouteState(routeId, true)
+
+    await ensureCsrfCookie()
+
+    const xsrfToken = readXsrfToken()
+    if (!xsrfToken) {
+      throw new Error('CSRFトークンの取得に失敗しました。')
+    }
+
+    const origin = getOriginHeader()
+
+    await $fetch(`${restaurantsEndpoint}/${encodeURIComponent(routeId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        Origin: origin,
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-XSRF-TOKEN': xsrfToken,
+      },
     })
 
-  return { headers, invalidLines: invalidLinesLocal }
+    routes.value = routes.value.filter((route) => route.id !== routeId)
+  } catch (error) {
+    console.error('レストラン情報の削除に失敗しました', error)
+
+    if (error instanceof FetchError && error.response?.status === 401) {
+      restaurantsError.value = 'セッションの有効期限が切れています。もう一度ログインしてください。'
+      await router.replace('/login')
+      return
+    }
+
+    restaurantsError.value = parseErrorMessage(error)
+  } finally {
+    updateDeletingRouteState(routeId, false)
+  }
 }
 
 const fetchPolyline = async () => {
@@ -823,7 +825,6 @@ const fetchPolyline = async () => {
   polylineLoading.value = true
   polylineError.value = ''
   polylineResult.value = null
-  invalidHeaderLines.value = []
   saveRestaurantsSuccess.value = ''
   saveRestaurantsError.value = ''
 
@@ -839,26 +840,14 @@ const fetchPolyline = async () => {
   try {
     await ensureCsrfCookie()
 
-    const customHeadersResult = parseHeadersInput(polylineForm.headersText)
-
-    if (customHeadersResult.invalidLines.length) {
-      invalidHeaderLines.value = customHeadersResult.invalidLines
-      throw new Error('ヘッダーの形式が正しくありません。"Header-Name: value" の形式で入力してください。')
-    }
-
     const origin = getOriginHeader()
     const xsrfToken = readXsrfToken()
 
-    const baseHeaders: Record<string, string> = {
+    const headers: Record<string, string> = {
       Accept: 'application/json',
       Origin: origin,
       'X-Requested-With': 'XMLHttpRequest',
       ...(xsrfToken ? { 'X-XSRF-TOKEN': xsrfToken } : {}),
-    }
-
-    const headers = {
-      ...baseHeaders,
-      ...customHeadersResult.headers,
     }
 
     const response = await $fetch<unknown>(polylineEndpoint, {
@@ -953,11 +942,6 @@ const saveRestaurants = async () => {
   } finally {
     saveRestaurantsLoading.value = false
   }
-}
-
-const clearPolylineHeaders = () => {
-  polylineForm.headersText = ''
-  invalidHeaderLines.value = []
 }
 
 const formatRating = (rating?: number) => {

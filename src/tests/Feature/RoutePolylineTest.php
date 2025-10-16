@@ -28,21 +28,18 @@ class RoutePolylineTest extends TestCase
         Config::set('services.google_maps.api_key', 'test-key');
 
         $geocodeResponse = static fn (float $lat, float $lng) => [
-            'status' => 'OK',
-            'results' => [
+            'places' => [
                 [
-                    'geometry' => [
-                        'location' => [
-                            'lat' => $lat,
-                            'lng' => $lng,
-                        ],
+                    'location' => [
+                        'latitude' => $lat,
+                        'longitude' => $lng,
                     ],
                 ],
             ],
         ];
 
         Http::fake([
-            'https://maps.googleapis.com/maps/api/geocode/*' => Http::sequence()
+            'https://places.googleapis.com/v1/places:searchText' => Http::sequence()
                 ->push($geocodeResponse(35.681236, 139.767125), 200)
                 ->push($geocodeResponse(34.985849, 135.758766), 200),
             'https://routes.googleapis.com/directions/v2:computeRoutes' => Http::response([
@@ -54,7 +51,7 @@ class RoutePolylineTest extends TestCase
                     ],
                 ],
             ], 200),
-            'https://maps.googleapis.com/maps/api/place/nearbysearch/json*' => Http::sequence()
+            'https://places.googleapis.com/v1/places:searchNearby' => Http::sequence()
                 ->push($this->placesResponse('place-alpha', 'Restaurant Alpha'), 200)
                 ->push($this->placesResponse('place-beta', 'Restaurant Beta'), 200)
                 ->push($this->placesResponse('place-gamma', 'Restaurant Gamma'), 200)
@@ -93,18 +90,19 @@ class RoutePolylineTest extends TestCase
     private function placesResponse(string $id, string $name): array
     {
         return [
-            'status' => 'OK',
-            'results' => [
+            'places' => [
                 [
-                    'place_id' => $id,
-                    'name' => $name,
-                    'geometry' => [
-                        'location' => [
-                            'lat' => 35.0,
-                            'lng' => 139.0,
-                        ],
+                    'id' => $id,
+                    'displayName' => [
+                        'text' => $name,
                     ],
-                    'vicinity' => 'Test Vicinity',
+                    'rating' => 4.5,
+                    'userRatingCount' => 100,
+                    'location' => [
+                        'latitude' => 35.0,
+                        'longitude' => 139.0,
+                    ],
+                    'formattedAddress' => 'Test Address',
                 ],
             ],
         ];
