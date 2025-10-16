@@ -12,3 +12,4 @@ Route::middleware(['auth:sanctum'])->get('/user', function (Request $request) {
 Route::middleware(['auth:sanctum'])->get('/restaurants-nearby', [RestaurantNearbyController::class, 'index']);
 Route::middleware(['auth:sanctum'])->get('/routes/polyline', RoutePolylineController::class);
 Route::middleware(['auth:sanctum'])->post('/restaurants-nearby', [RestaurantNearbyController::class, 'store']);
+Route::middleware(['auth:sanctum'])->delete('/restaurants-nearby/{restaurantNearby}', [RestaurantNearbyController::class, 'destroy']);

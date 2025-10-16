@@ -22,7 +22,7 @@ class RestaurantNearbyController extends Controller
 
         $records = RestaurantNearby::query()
             ->where('user_id', $user->id)
-            ->get(['origin', 'destination', 'restaurants_names']);
+            ->get(['id', 'origin', 'destination', 'restaurants_names']);
 
         return response()->json($records);
     }
@@ -45,5 +45,26 @@ class RestaurantNearbyController extends Controller
         ]);
 
         return response()->json($record, 201);
+    }
+
+    public function destroy(Request $request, RestaurantNearby $restaurantNearby): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user === null) {
+            return response()->json([
+                'message' => 'Unauthenticated.',
+            ], 401);
+        }
+
+        if ($restaurantNearby->user_id !== $user->id) {
+            return response()->json([
+                'message' => 'Forbidden.',
+            ], 403);
+        }
+
+        $restaurantNearby->delete();
+
+        return response()->json(null, 204);
     }
 }

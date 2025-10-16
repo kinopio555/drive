@@ -171,6 +171,17 @@
                         >
                           この経路を更新
                         </v-btn>
+                        <v-btn
+                          variant="outlined"
+                          size="small"
+                          color="error"
+                          prepend-icon="mdi-delete"
+                          :loading="isRouteDeleting(route.id)"
+                          :disabled="isRouteDeleting(route.id)"
+                          @click="deleteRoute(route.id)"
+                        >
+                          この記録を削除
+                        </v-btn>
                       </div>
                     </div>
                   </v-card>
@@ -367,6 +378,7 @@ const loading = ref(true)
 const isLoggingOut = ref(false)
 const logoutError = ref('')
 const routes = ref<RouteWithRestaurants[]>([])
+const deletingRouteIds = ref<Record<string, boolean>>({})
 const restaurantsLoading = ref(false)
 const restaurantsError = ref('')
 
@@ -734,6 +746,7 @@ const loadRoutes = async () => {
     })
 
     routes.value = normalizeRoutes(response)
+    deletingRouteIds.value = {}
   } catch (error) {
     console.error('レストラン情報の取得に失敗しました', error)
 
@@ -753,6 +766,71 @@ const loadRoutes = async () => {
 const refreshRestaurants = () => {
   routes.value = []
   loadRoutes()
+}
+
+const isRouteDeleting = (routeId: string) => deletingRouteIds.value[routeId] === true
+
+const updateDeletingRouteState = (routeId: string, active: boolean) => {
+  if (!routeId) {
+    return
+  }
+
+  if (active) {
+    deletingRouteIds.value = {
+      ...deletingRouteIds.value,
+      [routeId]: true,
+    }
+    return
+  }
+
+  const { [routeId]: _removed, ...rest } = deletingRouteIds.value
+  deletingRouteIds.value = rest
+}
+
+const deleteRoute = async (routeId: string) => {
+  if (!routeId || isRouteDeleting(routeId)) {
+    return
+  }
+
+  restaurantsError.value = ''
+
+  try {
+    updateDeletingRouteState(routeId, true)
+
+    await ensureCsrfCookie()
+
+    const xsrfToken = readXsrfToken()
+    if (!xsrfToken) {
+      throw new Error('CSRFトークンの取得に失敗しました。')
+    }
+
+    const origin = getOriginHeader()
+
+    await $fetch(`${restaurantsEndpoint}/${encodeURIComponent(routeId)}`, {
+      method: 'DELETE',
+      credentials: 'include',
+      headers: {
+        Accept: 'application/json',
+        Origin: origin,
+        'X-Requested-With': 'XMLHttpRequest',
+        'X-XSRF-TOKEN': xsrfToken,
+      },
+    })
+
+    routes.value = routes.value.filter((route) => route.id !== routeId)
+  } catch (error) {
+    console.error('レストラン情報の削除に失敗しました', error)
+
+    if (error instanceof FetchError && error.response?.status === 401) {
+      restaurantsError.value = 'セッションの有効期限が切れています。もう一度ログインしてください。'
+      await router.replace('/login')
+      return
+    }
+
+    restaurantsError.value = parseErrorMessage(error)
+  } finally {
+    updateDeletingRouteState(routeId, false)
+  }
 }
 
 const fetchPolyline = async () => {
