@@ -119,34 +119,98 @@ const readXsrfToken = () => {
 }
 
 const parseErrorMessage = (error: unknown) => {
-  if (typeof error === 'string') {
-    return error
+  const fallback = 'ログインに失敗しました。時間をおいて再度お試しください。'
+
+  const toTrimmedString = (value: unknown): string | undefined => {
+    if (typeof value === 'string') {
+      const trimmed = value.trim()
+      if (trimmed.length > 0) {
+        return trimmed
+      }
+    }
+    return undefined
   }
 
-  if (error instanceof Error) {
-    return error.message
-  }
+  const visited = new WeakSet<object>()
 
-  if (typeof error === 'object' && error) {
-    const maybeMessage = (error as { data?: { message?: string; errors?: Record<string, string[]> }; statusMessage?: string }).data?.message
-    if (maybeMessage) {
-      return maybeMessage
+  const fromObject = (payload: unknown): string | undefined => {
+    if (!payload || typeof payload !== 'object') {
+      return undefined
     }
 
-    const maybeErrors = (error as { data?: { errors?: Record<string, string[]> } }).data?.errors
-    if (maybeErrors) {
-      const firstEntry = Object.values(maybeErrors)[0]
-      if (firstEntry?.length) {
-        return firstEntry[0]
+    const objectPayload = payload as object
+    if (visited.has(objectPayload)) {
+      return undefined
+    }
+    visited.add(objectPayload)
+
+    const record = payload as Record<string, unknown>
+
+    const errors = record.errors
+    if (errors && typeof errors === 'object') {
+      for (const value of Object.values(errors as Record<string, unknown>)) {
+        if (Array.isArray(value)) {
+          for (const entry of value) {
+            const message = toTrimmedString(entry)
+            if (message) {
+              return message
+            }
+          }
+        } else {
+          const message = toTrimmedString(value)
+          if (message) {
+            return message
+          }
+        }
       }
     }
 
-    if ((error as { statusMessage?: string }).statusMessage) {
-      return (error as { statusMessage: string }).statusMessage
+    const directErrorField = toTrimmedString(record.error)
+    if (directErrorField) {
+      return directErrorField
     }
+
+    const nestedSources = [
+      record.data,
+      (record.response && typeof record.response === 'object' ? (record.response as { _data?: unknown })._data : undefined),
+      record.error,
+    ]
+
+    for (const source of nestedSources) {
+      const nestedMessage = fromObject(source)
+      if (nestedMessage) {
+        return nestedMessage
+      }
+    }
+
+    const directMessage = toTrimmedString(record.message)
+    if (directMessage) {
+      return directMessage
+    }
+
+    const statusMessage = toTrimmedString(record.statusMessage ?? record.statusText)
+    if (statusMessage) {
+      return statusMessage
+    }
+
+    return undefined
   }
 
-  return 'ログインに失敗しました。時間をおいて再度お試しください。'
+  const directString = toTrimmedString(error)
+  if (directString) {
+    return directString
+  }
+
+  const objectMessage = fromObject(error)
+  if (objectMessage) {
+    return objectMessage
+  }
+
+  if (error instanceof Error) {
+    return toTrimmedString(error.message) ?? fallback
+  }
+
+  return fallback
 }
 
 const coerceToBoolean = (value: unknown) => {
