@@ -76,9 +76,34 @@
               />
 
               <div v-else>
-                <div v-if="routes.length" class="d-flex flex-column ga-4">
+                <div v-if="routePairOptions.length" class="mb-4">
+                  <div class="text-subtitle-2 text-medium-emphasis mb-2">
+                    表示する経路を選択
+                  </div>
+                  <v-row class="ga-2">
+                    <v-col
+                      v-for="pair in routePairOptions"
+                      :key="pair.key"
+                      cols="12"
+                      md="6"
+                      lg="4"
+                      class="py-0"
+                    >
+                      <v-checkbox
+                        :model-value="isPairVisible(pair.key)"
+                        :label="`${pair.origin} → ${pair.destination}`"
+                        color="primary"
+                        density="compact"
+                        hide-details
+                        @update:model-value="setPairVisibility(pair.key, $event)"
+                      />
+                    </v-col>
+                  </v-row>
+                </div>
+
+                <div v-if="hasVisibleRoutes" class="d-flex flex-column ga-4">
                   <v-card
-                    v-for="route in routes"
+                    v-for="route in visibleRoutes"
                     :key="route.id"
                     variant="outlined"
                     class="pa-4"
@@ -170,6 +195,15 @@
                     </div>
                   </v-card>
                 </div>
+
+                <v-alert
+                  v-else-if="hasAnyRoutes"
+                  type="info"
+                  variant="tonal"
+                  density="comfortable"
+                >
+                  選択した経路がありません。表示したい経路にチェックを入れてください。
+                </v-alert>
 
                 <v-alert
                   v-else
@@ -310,7 +344,7 @@
 
 <script setup lang="ts">
 import { $fetch, FetchError } from 'ofetch'
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from '#imports'
 import { useCookie } from '#app'
 
@@ -362,6 +396,8 @@ const loading = ref(true)
 const isLoggingOut = ref(false)
 const logoutError = ref('')
 const routes = ref<RouteWithRestaurants[]>([])
+const routeVisibility = ref<Record<string, boolean>>({})
+let previousRouteVisibility: Record<string, boolean> = {}
 const deletingRouteIds = ref<Record<string, boolean>>({})
 const restaurantsLoading = ref(false)
 const restaurantsError = ref('')
@@ -390,6 +426,81 @@ const greetingMessage = computed(() => {
 })
 
 const hasPolylineResult = computed(() => polylineResult.value !== null)
+
+const buildRoutePairKey = (origin: string, destination: string) =>
+  `${encodeURIComponent(origin)}::${encodeURIComponent(destination)}`
+
+const routePairOptions = computed(() => {
+  const pairs = new Map<string, { key: string; origin: string; destination: string }>()
+
+  for (const route of routes.value) {
+    const key = buildRoutePairKey(route.origin, route.destination)
+    if (!pairs.has(key)) {
+      pairs.set(key, {
+        key,
+        origin: route.origin,
+        destination: route.destination,
+      })
+    }
+  }
+
+  return Array.from(pairs.values())
+})
+
+const visibleRoutes = computed(() =>
+  routes.value.filter((route) => {
+    const key = buildRoutePairKey(route.origin, route.destination)
+    return routeVisibility.value[key] !== false
+  }),
+)
+
+const hasAnyRoutes = computed(() => routes.value.length > 0)
+const hasVisibleRoutes = computed(() => visibleRoutes.value.length > 0)
+
+const isPairVisible = (pairKey: string) => routeVisibility.value[pairKey] !== false
+
+const setPairVisibility = (pairKey: string, visible: boolean) => {
+  const nextState: Record<string, boolean> = { ...routeVisibility.value }
+
+  if (visible) {
+    delete nextState[pairKey]
+  } else {
+    nextState[pairKey] = false
+  }
+
+  routeVisibility.value = nextState
+  previousRouteVisibility = { ...nextState }
+}
+
+const syncRouteVisibility = (items: RouteWithRestaurants[]) => {
+  if (!items.length) {
+    previousRouteVisibility = { ...routeVisibility.value }
+    routeVisibility.value = {}
+    return
+  }
+
+  const nextState: Record<string, boolean> = {}
+
+  for (const route of items) {
+    const key = buildRoutePairKey(route.origin, route.destination)
+    if (!(key in nextState)) {
+      if (routeVisibility.value[key] === false || previousRouteVisibility[key] === false) {
+        nextState[key] = false
+      }
+    }
+  }
+
+  routeVisibility.value = nextState
+  previousRouteVisibility = { ...nextState }
+}
+
+watch(
+  routes,
+  (newRoutes) => {
+    syncRouteVisibility(newRoutes)
+  },
+  { immediate: true },
+)
 
 const coerceToBoolean = (value: unknown) => {
   if (typeof value === 'boolean') {
