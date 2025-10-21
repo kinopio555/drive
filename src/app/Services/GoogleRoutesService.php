@@ -291,8 +291,8 @@ class GoogleRoutesService
         if ($userIdentifier !== null) {
             $limiterKey = "nearby-restaurants:user:{$userIdentifier}";
 
-            if (RateLimiter::tooManyAttempts($limiterKey, 20)) {
-                throw new RuntimeException('1分間に検索できる店舗数は20件までです');
+            if (RateLimiter::tooManyAttempts($limiterKey, 30)) {
+                throw new RuntimeException('1分間に検索できる店舗数は30件までです');
             }
 
             RateLimiter::hit($limiterKey, 60);
