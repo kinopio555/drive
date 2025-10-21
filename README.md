@@ -17,8 +17,8 @@ docker compose exec app composer require laravel/breeze
 ```
 ---
 docker-compose exec app composer install  
-(docker-compose exec app php artisan key:generate) **二回目以降は禁止かも**  
-おそらく.envのAPP_KEYがないときに作成するためのコマンド  
+(docker-compose exec app php artisan key:generate)
+.envのAPP_KEYがないときに作成するためのコマンド  
 docker-compose exec app php artisan migrate
 
 ---
@@ -30,31 +30,20 @@ docker compose exec app chmod -R 775 /var/www/html/src/storage
 docker compose exec app chmod -R 775 /var/www/html/src/bootstrap/cache
 ```
 
-## 学び
-XSRF-TOKEN はPOST/PUT/DELETEなどの“状態を変える”リクエストで CSRF を防ぐために使われるもので、GET にはそもそも要求されません。要求されないといっても持っている必要はある。明示的にヘッダーに渡さなくていいだけ
-APIトークン
-セッションクッキー
-laravel auth
-
 ## production
 composer install
 php artisan migrate:fresh
 
-npm ci
-ps aux | grep "node .output/server/index.mjs"
-kill <PID>
-npm run build
+npm ci  
+ps aux | grep "node .output/server/index.mjs"  
+kill <PID>  
+npm run build  
 node .output/server/index.mjs
 
-.envを二つ作成し
+laravelのデフォルトのDBはsqliteなので
 DB_CONNECTION=mysql
-DB_HOST=db
-DB_PORT=3306
-DB_DATABASE=laravel_db
-DB_USERNAME=laravel_user
-DB_PASSWORD=laravel_password
+
+SESSION_DOMAINも忘れずに変更
 
 ## DBへの入り方
 mysql -u root -p
-
-SESSION_DOMAINも忘れずに変更
