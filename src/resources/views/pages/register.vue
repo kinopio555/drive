@@ -81,6 +81,19 @@
                   </template>
                   {{ isSubmitting ? '登録処理中...' : '登録する' }}
                 </v-btn>
+
+                <v-btn
+                  block
+                  class="mt-3"
+                  color="secondary"
+                  size="large"
+                  variant="outlined"
+                  to="/login"
+                  type="button"
+                  :disabled="isSubmitting"
+                >
+                  ログイン画面へ
+                </v-btn>
               </v-form>
             </v-card-text>
           </v-card>
